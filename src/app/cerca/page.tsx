@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Children } from "react";
 import { prisma } from "@/lib/db";
 import SearchBar from "@/components/SearchBar";
 import { SEZIONI_LIST, sezioneFromCode } from "@/lib/sezioni";
@@ -215,11 +216,14 @@ export default async function CercaPage({ searchParams }: { searchParams: Promis
 }
 
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  const flat = Children.toArray(children);
   return (
     <div>
       <h2 className="font-semibold text-gray-900 mb-2 text-sm uppercase tracking-wide">{label}</h2>
-      <ul className="space-y-1 text-sm">
-        {Array.isArray(children) ? children.map((c, i) => <li key={i}>{c}</li>) : <li>{children}</li>}
+      <ul className="text-sm divide-y divide-gray-100">
+        {flat.map((c, i) => (
+          <li key={i} className="py-1.5">{c}</li>
+        ))}
       </ul>
     </div>
   );
@@ -242,7 +246,7 @@ function FilterLink({
   return (
     <Link
       href={`/cerca${qs ? `?${qs}` : ""}`}
-      className={`no-underline ${active ? "font-semibold text-brand-700" : "text-gray-700 hover:text-brand-700"} ${className}`}
+      className={`block no-underline leading-snug ${active ? "font-semibold text-brand-700" : "text-gray-700 hover:text-brand-700"} ${className}`}
     >
       {children}
     </Link>
