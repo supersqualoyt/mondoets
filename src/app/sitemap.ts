@@ -11,8 +11,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   const staticUrls: MetadataRoute.Sitemap = [
-    "", "/cerca", "/sezione", "/regione", "/strumenti", "/calcolatori", "/modelli",
-    "/guide", "/chi-siamo", "/contatti", "/privacy",
+    "", "/cerca", "/sezione", "/regione", "/provincia", "/mappa", "/statistiche",
+    "/strumenti", "/calcolatori", "/modelli", "/guide", "/chi-siamo", "/contatti", "/privacy",
   ].map((p) => ({ url: `${SITE_URL}${p || "/"}`, lastModified: now, priority: p === "" ? 1 : 0.7 }));
 
   const sezioniUrls: MetadataRoute.Sitemap = SEZIONI_LIST.map((s) => ({

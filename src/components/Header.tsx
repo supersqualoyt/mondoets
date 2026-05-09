@@ -17,6 +17,12 @@ export default function Header() {
           <Link href="/regione" className="text-gray-700 hover:text-brand-700 no-underline">
             Regioni
           </Link>
+          <Link href="/mappa" className="text-gray-700 hover:text-brand-700 no-underline">
+            Mappa
+          </Link>
+          <Link href="/statistiche" className="text-gray-700 hover:text-brand-700 no-underline">
+            Statistiche
+          </Link>
           <Link href="/strumenti" className="text-gray-700 hover:text-brand-700 no-underline">
             Strumenti
           </Link>

@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { prisma } from "@/lib/db";
 import { sezioneFromCode } from "@/lib/sezioni";
 import { formatDateIt } from "@/lib/format";
 import { buildMetadata } from "@/lib/seo";
+
+const MapaComune = dynamic(() => import("@/components/MapaComune"), { ssr: false });
 
 export const revalidate = 86400;
 
@@ -92,6 +95,13 @@ export default async function EtsPage({ params }: { params: Promise<{ slug: stri
           {ets.statoIscrizione && <Row label="Stato" value={ets.statoIscrizione} />}
         </DataBlock>
       </div>
+
+      {ets.comune && ets.provincia && (
+        <section className="mt-8 pt-6 border-t border-gray-200">
+          <h2 className="text-xl font-bold mb-3">Sede sulla mappa</h2>
+          <MapaComune comune={ets.comune} provincia={ets.provincia} denominazione={ets.denominazione} />
+        </section>
+      )}
 
       {ets.scopo && (
         <section className="mt-8 pt-6 border-t border-gray-200">

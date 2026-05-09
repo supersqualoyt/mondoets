@@ -5,7 +5,8 @@
       "PowerShell(tar.exe --exclude=node_modules --exclude=.next --exclude=.git --exclude=data\\\\runts -czf mondoets.tar.gz . 2>&1; if \\(Test-Path mondoets.tar.gz\\) { \\(Get-Item mondoets.tar.gz\\).Length })",
       "WebSearch",
       "WebFetch(domain:servizi.lavoro.gov.it)",
-      "Bash(tail -f \"C:\\\\\\\\Users\\\\\\\\Utente\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\D--sitiweb-mondoets\\\\\\\\2ed7f23f-ad75-4b4c-ad96-265b3cc4fa91\\\\\\\\tasks\\\\\\\\bm5c0o0c6.output\")"
+      "Bash(tail -f \"C:\\\\\\\\Users\\\\\\\\Utente\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\D--sitiweb-mondoets\\\\\\\\2ed7f23f-ad75-4b4c-ad96-265b3cc4fa91\\\\\\\\tasks\\\\\\\\bm5c0o0c6.output\")",
+      "Bash(tail -f \"C:\\\\\\\\Users\\\\\\\\Utente\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\D--sitiweb-mondoets\\\\\\\\2ed7f23f-ad75-4b4c-ad96-265b3cc4fa91\\\\\\\\tasks\\\\\\\\bw86d9wzd.output\")"
     ]
   }
 }

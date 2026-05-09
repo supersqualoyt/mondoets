@@ -17,6 +17,9 @@ export default function Footer() {
             <li><Link href="/cerca" className="text-gray-600 hover:text-brand-700 no-underline">Cerca ETS</Link></li>
             <li><Link href="/sezione" className="text-gray-600 hover:text-brand-700 no-underline">Sezioni RUNTS</Link></li>
             <li><Link href="/regione" className="text-gray-600 hover:text-brand-700 no-underline">Regioni</Link></li>
+            <li><Link href="/provincia" className="text-gray-600 hover:text-brand-700 no-underline">Province</Link></li>
+            <li><Link href="/mappa" className="text-gray-600 hover:text-brand-700 no-underline">Mappa</Link></li>
+            <li><Link href="/statistiche" className="text-gray-600 hover:text-brand-700 no-underline">Statistiche</Link></li>
           </ul>
         </div>
         <div>
