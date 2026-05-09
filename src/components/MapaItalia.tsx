@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, GeoJSON, Tooltip } from "react-leaflet";
+import { useEffect, useState, useRef } from "react";
+import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import type { Feature } from "geojson";
+import type { Layer } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/format";
@@ -17,12 +18,13 @@ function normalizeReg(name: string): string {
 export default function MapaItalia({ counts }: { counts: Counts }) {
   const [geo, setGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   const router = useRouter();
+  const geoLayerRef = useRef<L.GeoJSON | null>(null);
 
   useEffect(() => {
     fetch("/data/regioni.geojson")
       .then((r) => r.json())
-      .then(setGeo)
-      .catch(() => setGeo(null));
+      .then((data) => setGeo(data as GeoJSON.FeatureCollection))
+      .catch((err) => console.error("Errore caricamento GeoJSON:", err));
   }, []);
 
   const max = Math.max(...Object.values(counts), 1);
@@ -48,7 +50,12 @@ export default function MapaItalia({ counts }: { counts: Counts }) {
   }
 
   return (
-    <div className="h-[600px] w-full rounded-lg overflow-hidden border border-gray-200">
+    <div className="relative h-[600px] w-full rounded-lg overflow-hidden border border-gray-200">
+      {!geo && (
+        <div className="absolute inset-0 z-[400] flex items-center justify-center bg-white/60 text-sm text-gray-500 pointer-events-none">
+          Caricamento mappa…
+        </div>
+      )}
       <MapContainer
         center={[42.5, 12.5]}
         zoom={6}
@@ -61,9 +68,10 @@ export default function MapaItalia({ counts }: { counts: Counts }) {
         />
         {geo && (
           <GeoJSON
+            ref={(r) => { geoLayerRef.current = r; }}
             data={geo}
             style={styleFor}
-            onEachFeature={(feature, layer) => {
+            onEachFeature={(feature, layer: Layer) => {
               const raw = feature.properties?.reg_name as string | undefined;
               if (!raw) return;
               const nome = normalizeReg(raw);
@@ -71,16 +79,17 @@ export default function MapaItalia({ counts }: { counts: Counts }) {
               layer.bindTooltip(`<strong>${nome}</strong><br/>${n.toLocaleString("it-IT")} ETS`, { sticky: true });
               layer.on({
                 click: () => router.push(`/regione/${slugify(nome)}`),
-                mouseover: (e) => e.target.setStyle({ weight: 2, color: "#1858b3" }),
-                mouseout: (e) => e.target.setStyle({ weight: 1, color: "#fff" }),
+                mouseover: (e) => {
+                  const target = e.target as L.Path;
+                  target.setStyle({ weight: 2, color: "#1858b3", fillOpacity: 0.95 });
+                  target.bringToFront();
+                },
+                mouseout: () => {
+                  geoLayerRef.current?.resetStyle();
+                },
               });
             }}
           />
-        )}
-        {!geo && (
-          <Tooltip permanent>
-            <span className="text-xs text-gray-500">Caricamento dati geografici…</span>
-          </Tooltip>
         )}
       </MapContainer>
     </div>
