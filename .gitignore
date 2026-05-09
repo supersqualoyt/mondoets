@@ -11,3 +11,4 @@ data/runts/*.zip
 scripts/data/
 .vercel
 next-env.d.ts
+tsconfig.tsbuildinfo
