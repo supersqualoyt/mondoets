@@ -1,0 +1,166 @@
+// Schema MondoEts - portale del terzo settore italiano
+// MySQL su Hetzner CloudPanel
+// Solo italiano, no i18n
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex", "fullTextSearch"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// ETS — entità principale (dati RUNTS)
+// =====================================================
+// Le sette sezioni RUNTS (DM 106/2020):
+//   ODV  - Organizzazioni di Volontariato
+//   APS  - Associazioni di Promozione Sociale
+//   FIL  - Enti Filantropici
+//   IS   - Imprese Sociali (incluse cooperative sociali)
+//   RA   - Reti Associative
+//   SMS  - Società di Mutuo Soccorso
+//   ALTRI - Altri ETS
+model Ets {
+  id Int @id @default(autoincrement())
+
+  // Identificativi
+  slug              String  @unique @db.VarChar(255)
+  codiceFiscale     String  @unique @map("codice_fiscale") @db.VarChar(20)
+  partitaIva        String? @map("partita_iva") @db.VarChar(20)
+  numeroRepertorio  String? @map("numero_repertorio") @db.VarChar(40)
+
+  // Anagrafica
+  denominazione     String  @db.VarChar(500)
+  naturaGiuridica   String? @map("natura_giuridica") @db.VarChar(255)
+  sezione           String  @db.VarChar(20) // ODV | APS | FIL | IS | RA | SMS | ALTRI
+
+  // Contatti (esposti pubblicamente solo se da open data RUNTS)
+  email      String? @db.VarChar(255)
+  pec        String? @db.VarChar(255)
+  telefono   String? @db.VarChar(40)
+  sitoWeb    String? @map("sito_web") @db.VarChar(500)
+
+  // Sede legale
+  regione    String? @db.VarChar(80)
+  provincia  String? @db.VarChar(80) // sigla 2 lettere
+  comune     String? @db.VarChar(120)
+  cap        String? @db.VarChar(10)
+  indirizzo  String? @db.VarChar(500)
+
+  // Geo (per mappa)
+  latitudine  Decimal? @db.Decimal(10, 7)
+  longitudine Decimal? @db.Decimal(10, 7)
+
+  // Attività e classificazione
+  attivitaInteresse String? @map("attivita_interesse") @db.Text // CSV codici art.5 CTS
+  scopo             String? @db.Text
+
+  // Stato RUNTS
+  statoIscrizione   String?  @map("stato_iscrizione") @db.VarChar(40) // ISCRITTO, SOSPESO, CANCELLATO
+  dataIscrizione    DateTime? @map("data_iscrizione")
+  dataCostituzione  DateTime? @map("data_costituzione")
+
+  // Rivendicazione (futuro F2)
+  isClaimed     Boolean   @default(false) @map("is_claimed")
+  claimedAt     DateTime? @map("claimed_at")
+  claimedEmail  String?   @map("claimed_email") @db.VarChar(255)
+
+  // SEO
+  metaTitle       String? @map("meta_title") @db.VarChar(255)
+  metaDescription String? @map("meta_description") @db.VarChar(500)
+
+  // Stats
+  viewCount Int @default(0) @map("view_count")
+
+  // Timestamp
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sezione])
+  @@index([regione])
+  @@index([provincia])
+  @@index([comune])
+  @@index([regione, provincia])
+  @@index([sezione, regione])
+  @@index([statoIscrizione])
+  @@fulltext([denominazione])
+  @@map("ets")
+}
+
+// =====================================================
+// REGIONI / PROVINCE / COMUNI — per filtri e SEO geografica
+// =====================================================
+model Regione {
+  id        Int    @id @default(autoincrement())
+  slug      String @unique @db.VarChar(80)
+  nome      String @unique @db.VarChar(80)
+  codiceIstat String? @unique @map("codice_istat") @db.VarChar(10)
+
+  province Provincia[]
+
+  @@map("regioni")
+}
+
+model Provincia {
+  id        Int    @id @default(autoincrement())
+  slug      String @unique @db.VarChar(80)
+  nome      String @db.VarChar(120)
+  sigla     String @unique @db.VarChar(2)
+  regioneId Int    @map("regione_id")
+  codiceIstat String? @unique @map("codice_istat") @db.VarChar(10)
+
+  regione Regione  @relation(fields: [regioneId], references: [id], onDelete: Cascade)
+  comuni  Comune[]
+
+  @@index([regioneId])
+  @@map("province")
+}
+
+model Comune {
+  id          Int    @id @default(autoincrement())
+  slug        String @unique @db.VarChar(120)
+  nome        String @db.VarChar(120)
+  cap         String? @db.VarChar(10)
+  provinciaId Int    @map("provincia_id")
+  codiceIstat String? @unique @map("codice_istat") @db.VarChar(10)
+
+  provincia Provincia @relation(fields: [provinciaId], references: [id], onDelete: Cascade)
+
+  @@index([provinciaId])
+  @@index([nome])
+  @@map("comuni")
+}
+
+// =====================================================
+// NEWSLETTER — lead gen
+// =====================================================
+model NewsletterSubscriber {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique @db.VarChar(255)
+  confirmedAt    DateTime? @map("confirmed_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  source         String?   @db.VarChar(80) // homepage, scheda-ets, footer, calcolatore, ecc
+  ipHash         String?   @map("ip_hash") @db.VarChar(80)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([confirmedAt])
+  @@map("newsletter_subscribers")
+}
+
+// =====================================================
+// USAGE — rate limit tool gratuiti (3/mese per email)
+// =====================================================
+model ToolUsage {
+  id        Int      @id @default(autoincrement())
+  toolKey   String   @map("tool_key") @db.VarChar(80) // verbale-assemblea | convocazione | ...
+  email     String   @db.VarChar(255)
+  ipHash    String?  @map("ip_hash") @db.VarChar(80)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@index([toolKey])
+  @@map("tool_usage")
+}
