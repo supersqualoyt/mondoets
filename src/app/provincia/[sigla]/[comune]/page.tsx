@@ -5,6 +5,7 @@ import { formatNumber, slugify } from "@/lib/format";
 import { buildMetadata } from "@/lib/seo";
 import { sezioneFromCode } from "@/lib/sezioni";
 import { provinciaFromSigla } from "@/lib/geo";
+import MapaComuneEnti from "@/components/MapaComuneEntiLoader";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -55,9 +56,10 @@ export default async function ComunePage({
 
   let total = 0;
   let items: Array<{ id: number; slug: string; denominazione: string; sezione: string }> = [];
+  let mapItems: Array<{ id: number; slug: string; denominazione: string; sezione: string }> = [];
 
   try {
-    [total, items] = await Promise.all([
+    [total, items, mapItems] = await Promise.all([
       prisma.ets.count({ where: { provincia: p.sigla, comune: nomeComune } }),
       prisma.ets.findMany({
         where: { provincia: p.sigla, comune: nomeComune },
@@ -65,6 +67,13 @@ export default async function ComunePage({
         orderBy: { denominazione: "asc" },
         skip: (page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
+      }),
+      // primi 500 ETS per mappa (limite performance leaflet)
+      prisma.ets.findMany({
+        where: { provincia: p.sigla, comune: nomeComune },
+        select: { id: true, slug: true, denominazione: true, sezione: true },
+        orderBy: { denominazione: "asc" },
+        take: 500,
       }),
     ]);
   } catch {
@@ -88,6 +97,18 @@ export default async function ComunePage({
       <p className="text-sm text-gray-500 mb-6">
         Provincia di {p.nome} · {formatNumber(total)} enti
       </p>
+
+      {mapItems.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-3">
+            Mappa degli ETS{total > 500 && <span className="text-sm font-normal text-gray-500"> (primi 500 di {total})</span>}
+          </h2>
+          <MapaComuneEnti comune={nomeComune} sigla={p.sigla} ets={mapItems} />
+          <p className="text-xs text-gray-500 mt-2">
+            La posizione dei marker è approssimata: centro del comune con dispersione casuale (gli enti del RUNTS non pubblicano l&apos;indirizzo geocodificato).
+          </p>
+        </section>
+      )}
 
       {items.length === 0 ? (
         <p className="text-gray-500">Nessun ente caricato.</p>

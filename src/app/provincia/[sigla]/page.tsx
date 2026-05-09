@@ -5,6 +5,7 @@ import { formatNumber, slugify } from "@/lib/format";
 import { buildMetadata } from "@/lib/seo";
 import { sezioneFromCode } from "@/lib/sezioni";
 import { provinciaFromSigla, PROVINCE_LIST } from "@/lib/geo";
+import MapaProvincia from "@/components/MapaProvinciaLoader";
 
 export const revalidate = 3600;
 
@@ -41,14 +42,16 @@ export default async function ProvinciaPage({
   let total = 0;
   let items: Array<{ id: number; slug: string; denominazione: string; sezione: string; comune: string | null }> = [];
   let topComuni: Array<{ comune: string; n: number }> = [];
+  let allComuni: Array<{ comune: string; n: number }> = [];
 
   try {
     const comuneRows = await prisma.$queryRaw<Array<{ comune: string | null; n: bigint }>>`
-      SELECT comune, COUNT(*) AS n FROM ets WHERE provincia = ${p.sigla} AND comune IS NOT NULL GROUP BY comune ORDER BY n DESC LIMIT 20
+      SELECT comune, COUNT(*) AS n FROM ets WHERE provincia = ${p.sigla} AND comune IS NOT NULL GROUP BY comune ORDER BY n DESC
     `;
-    topComuni = comuneRows
+    allComuni = comuneRows
       .filter((r) => r.comune)
       .map((r) => ({ comune: r.comune as string, n: Number(r.n) }));
+    topComuni = allComuni.slice(0, 20);
 
     [total, items] = await Promise.all([
       prisma.ets.count({ where: { provincia: p.sigla } }),
@@ -82,6 +85,13 @@ export default async function ProvinciaPage({
         Sigla: <strong>{p.sigla}</strong> · Regione: <Link href={`/regione/${p.regioneSlug}`} className="no-underline hover:underline">{p.regione}</Link>
         {total > 0 && <> · {formatNumber(total)} enti</>}
       </p>
+
+      {allComuni.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-3">Mappa dei comuni</h2>
+          <MapaProvincia sigla={p.sigla} comuni={allComuni} />
+        </section>
+      )}
 
       {topComuni.length > 0 && (
         <section className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
