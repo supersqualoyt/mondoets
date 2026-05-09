@@ -14,15 +14,19 @@ export const metadata = buildMetadata({
 
 export default async function SezioniIndexPage() {
   let counts: Array<{ sezione: string; n: number }> = [];
+  let raCount = 0;
   try {
     const rows = await prisma.$queryRaw<Array<{ sezione: string; n: bigint }>>`
       SELECT sezione, COUNT(*) AS n FROM ets GROUP BY sezione
     `;
     counts = rows.map((r) => ({ sezione: r.sezione, n: Number(r.n) }));
+    raCount = await prisma.ets.count({ where: { flagRete: true } });
   } catch {
     // DB non pronto
   }
   const map = new Map(counts.map((c) => [c.sezione, c.n]));
+  // Le Reti Associative sono enti con qualifica di rete (flag_rete = 1), non hanno sezione propria
+  map.set("RA", raCount);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

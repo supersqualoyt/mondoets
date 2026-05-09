@@ -37,14 +37,18 @@ export default async function SezionePage({
 
   const page = Math.max(1, parseInt(sp.page ?? "1", 10));
 
+  // Le Reti Associative non hanno una sezione dedicata nel dump iscritti del RUNTS:
+  // sono enti (APS, ODV, ecc.) con qualifica di "rete associativa" → flag `Rete = Sì`.
+  const where = sez.code === "RA" ? { flagRete: true } : { sezione: sez.code };
+
   let total = 0;
-  let items: Array<{ id: number; slug: string; denominazione: string; comune: string | null; provincia: string | null }> = [];
+  let items: Array<{ id: number; slug: string; denominazione: string; comune: string | null; provincia: string | null; sezione: string }> = [];
   try {
     [total, items] = await Promise.all([
-      prisma.ets.count({ where: { sezione: sez.code } }),
+      prisma.ets.count({ where }),
       prisma.ets.findMany({
-        where: { sezione: sez.code },
-        select: { id: true, slug: true, denominazione: true, comune: true, provincia: true },
+        where,
+        select: { id: true, slug: true, denominazione: true, comune: true, provincia: true, sezione: true },
         orderBy: { denominazione: "asc" },
         skip: (page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
@@ -68,6 +72,13 @@ export default async function SezionePage({
 
       <h1 className="text-3xl font-bold text-gray-900 mb-2">{sez.plural}</h1>
       <p className="text-gray-700 max-w-3xl mb-6">{sez.description}</p>
+      {sez.code === "RA" && (
+        <p className="text-sm text-gray-600 max-w-3xl mb-6 italic">
+          Le reti associative non costituiscono una sezione dedicata del RUNTS: sono enti (associazioni, fondazioni o
+          imprese sociali) che hanno ottenuto la qualifica di rete associativa ai sensi dell&apos;art. 41 del Codice del
+          Terzo Settore. Qui trovi gli enti italiani con questa qualifica, indipendentemente dalla sezione di iscrizione.
+        </p>
+      )}
       {total > 0 && (
         <p className="text-sm text-gray-500 mb-6">
           {formatNumber(total)} enti iscritti — pagina {page} di {totalPages}
@@ -82,11 +93,12 @@ export default async function SezionePage({
             <li key={e.id} className="py-3">
               <Link href={`/ets/${e.slug}`} className="block no-underline group">
                 <h2 className="font-semibold text-brand-700 group-hover:underline">{e.denominazione}</h2>
-                {(e.comune || e.provincia) && (
-                  <p className="text-sm text-gray-600">
-                    {e.comune}{e.provincia && ` (${e.provincia})`}
-                  </p>
-                )}
+                <p className="text-sm text-gray-600">
+                  {sez.code === "RA" && e.sezione !== "RA" && (
+                    <span className="mr-2 text-xs px-1.5 py-0.5 bg-gray-100 rounded">{e.sezione}</span>
+                  )}
+                  {e.comune}{e.provincia && ` (${e.provincia})`}
+                </p>
               </Link>
             </li>
           ))}
