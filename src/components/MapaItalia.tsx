@@ -9,6 +9,11 @@ import { slugify } from "@/lib/format";
 
 type Counts = Record<string, number>;
 
+function normalizeReg(name: string): string {
+  // Geojson openpolis usa nomi bilingui ("Valle d'Aosta/Vallée d'Aoste"). Prendiamo la parte italiana.
+  return name.split("/")[0].trim();
+}
+
 export default function MapaItalia({ counts }: { counts: Counts }) {
   const [geo, setGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   const router = useRouter();
@@ -32,7 +37,7 @@ export default function MapaItalia({ counts }: { counts: Counts }) {
   }
 
   function styleFor(feature?: Feature) {
-    const nome = (feature?.properties?.reg_name as string | undefined) ?? "";
+    const nome = normalizeReg((feature?.properties?.reg_name as string | undefined) ?? "");
     const n = counts[nome] ?? 0;
     return {
       fillColor: colorFor(n),
@@ -59,8 +64,9 @@ export default function MapaItalia({ counts }: { counts: Counts }) {
             data={geo}
             style={styleFor}
             onEachFeature={(feature, layer) => {
-              const nome = feature.properties?.reg_name as string | undefined;
-              if (!nome) return;
+              const raw = feature.properties?.reg_name as string | undefined;
+              if (!raw) return;
+              const nome = normalizeReg(raw);
               const n = counts[nome] ?? 0;
               layer.bindTooltip(`<strong>${nome}</strong><br/>${n.toLocaleString("it-IT")} ETS`, { sticky: true });
               layer.on({
