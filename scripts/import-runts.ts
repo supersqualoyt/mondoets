@@ -62,6 +62,7 @@ const SEZIONI_ALIAS: Record<string, "ODV" | "APS" | "FIL" | "IS" | "RA" | "SMS" 
   "rete associativa": "RA",
   "ra": "RA",
   "societa di mutuo soccorso": "SMS",
+  "societa' di mutuo soccorso": "SMS",
   "società di mutuo soccorso": "SMS",
   "sms": "SMS",
   "altri enti del terzo settore": "ALTRI",
@@ -100,7 +101,14 @@ const PROV_TO_REG: Record<string, string> = {
 };
 
 function normalizeKey(k: string) {
-  return k.toLowerCase().trim().replace(/\s+/g, " ").replace(/[._-]+/g, " ").replace(/\s+/g, " ");
+  return k
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/['’`]/g, "")
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 function buildHeaderIndex(header: string[]) {

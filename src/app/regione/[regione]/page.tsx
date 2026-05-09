@@ -1,38 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { formatNumber, slugify } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { buildMetadata } from "@/lib/seo";
 import { sezioneFromCode } from "@/lib/sezioni";
+import { regioneFromSlug, provinceForRegione, REGIONI_LIST } from "@/lib/geo";
 
 export const revalidate = 3600;
 
-const PAGE_SIZE = 30;
-
-async function findRegioneNomeFromSlug(slug: string): Promise<string | null> {
-  try {
-    const regs = await prisma.$queryRaw<Array<{ regione: string | null }>>`
-      SELECT DISTINCT regione FROM ets WHERE regione IS NOT NULL
-    `;
-    for (const r of regs) {
-      if (r.regione && slugify(r.regione) === slug) return r.regione;
-    }
-  } catch {
-    // DB non pronto
-  }
-  return null;
+export async function generateStaticParams() {
+  return REGIONI_LIST.map((r) => ({ regione: r.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ regione: string }> }) {
   const { regione } = await params;
-  const nome = await findRegioneNomeFromSlug(regione);
-  if (!nome) return buildMetadata({ title: "Regione non trovata", path: `/regione/${regione}`, noindex: true });
+  const r = regioneFromSlug(regione);
+  if (!r) return buildMetadata({ title: "Regione non trovata", path: `/regione/${regione}`, noindex: true });
   return buildMetadata({
-    title: `ETS in ${nome}`,
-    description: `Enti del terzo settore con sede legale in ${nome}, iscritti al RUNTS.`,
+    title: `ETS in ${r.nome}`,
+    description: `Enti del terzo settore con sede legale in ${r.nome}, iscritti al RUNTS. Cerca per provincia, sezione o codice fiscale.`,
     path: `/regione/${regione}`,
   });
 }
+
+const PAGE_SIZE = 30;
 
 export default async function RegionePage({
   params, searchParams,
@@ -42,19 +33,26 @@ export default async function RegionePage({
 }) {
   const { regione } = await params;
   const sp = await searchParams;
-  const nome = await findRegioneNomeFromSlug(regione);
-  if (!nome) notFound();
+  const r = regioneFromSlug(regione);
+  if (!r) notFound();
 
   const page = Math.max(1, parseInt(sp.page ?? "1", 10));
+  const province = provinceForRegione(r.nome);
 
   let total = 0;
   let items: Array<{ id: number; slug: string; denominazione: string; sezione: string; comune: string | null; provincia: string | null }> = [];
+  let provCounts = new Map<string, number>();
 
   try {
+    const provRows = await prisma.$queryRaw<Array<{ provincia: string | null; n: bigint }>>`
+      SELECT provincia, COUNT(*) AS n FROM ets WHERE regione = ${r.nome} AND provincia IS NOT NULL GROUP BY provincia
+    `;
+    provCounts = new Map(provRows.map((row) => [row.provincia ?? "", Number(row.n)]));
+
     [total, items] = await Promise.all([
-      prisma.ets.count({ where: { regione: nome } }),
+      prisma.ets.count({ where: { regione: r.nome } }),
       prisma.ets.findMany({
-        where: { regione: nome },
+        where: { regione: r.nome },
         select: { id: true, slug: true, denominazione: true, sezione: true, comune: true, provincia: true },
         orderBy: { denominazione: "asc" },
         skip: (page - 1) * PAGE_SIZE,
@@ -74,15 +72,34 @@ export default async function RegionePage({
         {" / "}
         <Link href="/regione" className="no-underline hover:underline">Regioni</Link>
         {" / "}
-        <span>{nome}</span>
+        <span>{r.nome}</span>
       </nav>
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">ETS in {nome}</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">ETS in {r.nome}</h1>
       {total > 0 && (
         <p className="text-sm text-gray-500 mb-6">
-          {formatNumber(total)} enti iscritti al RUNTS — pagina {page} di {totalPages}
+          {formatNumber(total)} enti iscritti al RUNTS
         </p>
       )}
 
+      {province.length > 0 && (
+        <section className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h2 className="font-semibold text-gray-900 mb-3">Esplora per provincia</h2>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {province.map((p) => {
+              const n = provCounts.get(p.sigla) ?? 0;
+              return (
+                <li key={p.sigla}>
+                  <Link href={`/provincia/${p.sigla.toLowerCase()}`} className="text-sm text-brand-700 hover:underline no-underline">
+                    {p.nome} <span className="text-gray-500">({formatNumber(n)})</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      <h2 className="text-xl font-bold text-gray-900 mb-4">Tutti gli ETS in {r.nome}</h2>
       {items.length === 0 ? (
         <p className="text-gray-500">Nessun ente caricato per questa regione.</p>
       ) : (
@@ -92,7 +109,7 @@ export default async function RegionePage({
             return (
               <li key={e.id} className="py-3">
                 <Link href={`/ets/${e.slug}`} className="block no-underline group">
-                  <h2 className="font-semibold text-brand-700 group-hover:underline">{e.denominazione}</h2>
+                  <h3 className="font-semibold text-brand-700 group-hover:underline">{e.denominazione}</h3>
                   <p className="text-sm text-gray-600">
                     {sez?.label ?? e.sezione}
                     {e.comune && ` · ${e.comune}`}
