@@ -14,7 +14,7 @@ export const metadata = buildMetadata({
 });
 
 export default async function MappaPage() {
-  let counts: Record<string, number> = {};
+  const counts: Record<string, number> = {};
   let totale = 0;
   try {
     const rows = await prisma.$queryRaw<Array<{ regione: string | null; n: bigint }>>`
