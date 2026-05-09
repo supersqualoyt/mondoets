@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "PowerShell(Test-Path *)",
-      "PowerShell(tar.exe --exclude=node_modules --exclude=.next --exclude=.git --exclude=data\\\\runts -czf mondoets.tar.gz . 2>&1; if \\(Test-Path mondoets.tar.gz\\) { \\(Get-Item mondoets.tar.gz\\).Length })"
+      "PowerShell(tar.exe --exclude=node_modules --exclude=.next --exclude=.git --exclude=data\\\\runts -czf mondoets.tar.gz . 2>&1; if \\(Test-Path mondoets.tar.gz\\) { \\(Get-Item mondoets.tar.gz\\).Length })",
+      "WebSearch",
+      "WebFetch(domain:servizi.lavoro.gov.it)"
     ]
   }
 }

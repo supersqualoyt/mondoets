@@ -63,6 +63,11 @@ model Ets {
   dataIscrizione    DateTime? @map("data_iscrizione")
   dataCostituzione  DateTime? @map("data_costituzione")
 
+  // Dati estesi RUNTS
+  legaleRappresentante String? @map("legale_rappresentante") @db.VarChar(255)
+  flag5x1000           Boolean? @map("flag_5x1000")
+  flagRete             Boolean? @map("flag_rete")
+
   // Rivendicazione (futuro F2)
   isClaimed     Boolean   @default(false) @map("is_claimed")
   claimedAt     DateTime? @map("claimed_at")

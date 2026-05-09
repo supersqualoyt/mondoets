@@ -1,17 +1,8 @@
 /**
- * Importer RUNTS — legge dump open-data e popola tabella ets.
+ * Importer RUNTS — legge dump open-data ufficiale (xlsx convertito in CSV).
  *
  * Uso:
- *   npm run import-runts -- data/runts/runts-aps.csv
- *   npm run import-runts -- data/runts/*.csv
- *
- * Il formato del dump RUNTS aperto può variare nel tempo. Questo script:
- *   1. Tenta di rilevare il delimitatore (`;` o `,`).
- *   2. Mappa le colonne tramite alias (vedi MAP).
- *   3. Normalizza la sezione RUNTS in uno dei codici noti.
- *   4. Esegue upsert per codice fiscale.
- *
- * Adattare MAP se il file ha intestazioni diverse.
+ *   npm run import-runts -- ~/runts-dump/20260510_iscritti.csv
  */
 import { PrismaClient } from "@prisma/client";
 import { parse } from "csv-parse";
@@ -22,57 +13,94 @@ import { slugify } from "../src/lib/format";
 
 const prisma = new PrismaClient();
 
-// Mappa: campo Ets → possibili intestazioni nel CSV (normalizzate lower-case)
+// Mappa: campo Ets → alias header (normalizzati: lowercase, spazi singoli)
 const MAP: Record<string, string[]> = {
-  codiceFiscale: ["codice fiscale", "cf", "codicefiscale", "codice_fiscale"],
-  partitaIva: ["partita iva", "p iva", "piva", "partita_iva"],
-  numeroRepertorio: ["numero repertorio", "n repertorio", "rep_runts", "repertorio"],
-  denominazione: ["denominazione", "nome", "ragione sociale"],
-  naturaGiuridica: ["natura giuridica", "forma giuridica", "naturagiuridica"],
-  sezione: ["sezione", "tipologia", "sezione runts"],
-  email: ["email", "e-mail", "mail"],
+  codiceFiscale: ["codice fiscale steuernummer", "codice fiscale", "cf", "codicefiscale"],
+  numeroRepertorio: ["repertorio repertoire", "repertorio", "numero repertorio"],
+  denominazione: ["denominazione bezeichnung", "denominazione"],
+  sezione: ["sezione (*) sektion", "sezione (*)", "sezione", "tipologia"],
+  legaleRappresentante: [
+    "cognome e nome legali rapp. name und vorname d. gesetzl. vertreters",
+    "cognome e nome legali rapp.",
+    "legale rappresentante",
+  ],
+  flagRete: ["rete netzwerk", "rete"],
+  comune: ["comune sede legale gemeinsame rechtssitz", "comune sede legale", "comune"],
+  provincia: ["provincia sede legale provinz rechtssitz", "provincia sede legale", "provincia"],
+  flag5x1000: ["5x 1000", "5x1000", "5 per mille"],
+  dataIscrizione: ["data iscrizione anmeldedatum", "data iscrizione"],
+  // campi extra opzionali da altri dump
+  partitaIva: ["partita iva", "p iva", "piva"],
+  naturaGiuridica: ["natura giuridica", "forma giuridica"],
+  email: ["email", "e-mail"],
   pec: ["pec", "indirizzo pec"],
   telefono: ["telefono", "tel"],
-  sitoWeb: ["sito web", "sito internet", "url", "website"],
-  regione: ["regione"],
-  provincia: ["provincia", "sigla provincia", "prov"],
-  comune: ["comune"],
+  sitoWeb: ["sito web", "sito internet", "url"],
   cap: ["cap"],
-  indirizzo: ["indirizzo", "via", "via/piazza"],
-  scopo: ["scopo", "oggetto sociale", "attivita"],
-  attivitaInteresse: ["attivita di interesse generale", "attivita interesse", "art. 5"],
-  statoIscrizione: ["stato iscrizione", "stato", "stato runts"],
-  dataIscrizione: ["data iscrizione", "data iscr", "data iscrizione runts"],
-  dataCostituzione: ["data costituzione", "data costituz"],
+  indirizzo: ["indirizzo", "via"],
+  scopo: ["scopo", "oggetto sociale"],
+  attivitaInteresse: ["attivita di interesse generale", "attivita interesse"],
+  statoIscrizione: ["stato iscrizione", "stato"],
+  dataCostituzione: ["data costituzione"],
 };
 
 const SEZIONI_ALIAS: Record<string, "ODV" | "APS" | "FIL" | "IS" | "RA" | "SMS" | "ALTRI"> = {
-  "odv": "ODV",
   "organizzazioni di volontariato": "ODV",
   "organizzazione di volontariato": "ODV",
-  "aps": "APS",
-  "associazione di promozione sociale": "APS",
+  "odv": "ODV",
   "associazioni di promozione sociale": "APS",
-  "ente filantropico": "FIL",
+  "associazione di promozione sociale": "APS",
+  "aps": "APS",
   "enti filantropici": "FIL",
+  "ente filantropico": "FIL",
   "filantropico": "FIL",
   "fil": "FIL",
-  "impresa sociale": "IS",
   "imprese sociali": "IS",
+  "impresa sociale": "IS",
   "is": "IS",
-  "rete associativa": "RA",
   "reti associative": "RA",
+  "rete associativa": "RA",
   "ra": "RA",
   "societa di mutuo soccorso": "SMS",
   "società di mutuo soccorso": "SMS",
   "sms": "SMS",
+  "altri enti del terzo settore": "ALTRI",
   "altri ets": "ALTRI",
-  "altro": "ALTRI",
   "altri": "ALTRI",
+  "altro": "ALTRI",
+};
+
+const PROV_TO_REG: Record<string, string> = {
+  AQ: "Abruzzo", CH: "Abruzzo", PE: "Abruzzo", TE: "Abruzzo",
+  MT: "Basilicata", PZ: "Basilicata",
+  CS: "Calabria", CZ: "Calabria", KR: "Calabria", RC: "Calabria", VV: "Calabria",
+  AV: "Campania", BN: "Campania", CE: "Campania", NA: "Campania", SA: "Campania",
+  BO: "Emilia-Romagna", FC: "Emilia-Romagna", FE: "Emilia-Romagna", MO: "Emilia-Romagna",
+  PC: "Emilia-Romagna", PR: "Emilia-Romagna", RA: "Emilia-Romagna", RE: "Emilia-Romagna", RN: "Emilia-Romagna",
+  GO: "Friuli-Venezia Giulia", PN: "Friuli-Venezia Giulia", TS: "Friuli-Venezia Giulia", UD: "Friuli-Venezia Giulia",
+  FR: "Lazio", LT: "Lazio", RI: "Lazio", RM: "Lazio", VT: "Lazio",
+  GE: "Liguria", IM: "Liguria", SP: "Liguria", SV: "Liguria",
+  BG: "Lombardia", BS: "Lombardia", CO: "Lombardia", CR: "Lombardia", LC: "Lombardia",
+  LO: "Lombardia", MB: "Lombardia", MI: "Lombardia", MN: "Lombardia", PV: "Lombardia",
+  SO: "Lombardia", VA: "Lombardia",
+  AN: "Marche", AP: "Marche", FM: "Marche", MC: "Marche", PU: "Marche",
+  CB: "Molise", IS: "Molise",
+  AL: "Piemonte", AT: "Piemonte", BI: "Piemonte", CN: "Piemonte", NO: "Piemonte",
+  TO: "Piemonte", VB: "Piemonte", VC: "Piemonte",
+  BA: "Puglia", BR: "Puglia", BT: "Puglia", FG: "Puglia", LE: "Puglia", TA: "Puglia",
+  CA: "Sardegna", NU: "Sardegna", OR: "Sardegna", SS: "Sardegna", SU: "Sardegna",
+  AG: "Sicilia", CL: "Sicilia", CT: "Sicilia", EN: "Sicilia", ME: "Sicilia",
+  PA: "Sicilia", RG: "Sicilia", SR: "Sicilia", TP: "Sicilia",
+  AR: "Toscana", FI: "Toscana", GR: "Toscana", LI: "Toscana", LU: "Toscana",
+  MS: "Toscana", PI: "Toscana", PO: "Toscana", PT: "Toscana", SI: "Toscana",
+  BZ: "Trentino-Alto Adige", TN: "Trentino-Alto Adige",
+  PG: "Umbria", TR: "Umbria",
+  AO: "Valle d'Aosta",
+  BL: "Veneto", PD: "Veneto", RO: "Veneto", TV: "Veneto", VE: "Veneto", VI: "Veneto", VR: "Veneto",
 };
 
 function normalizeKey(k: string) {
-  return k.toLowerCase().trim().replace(/[._-]+/g, " ").replace(/\s+/g, " ");
+  return k.toLowerCase().trim().replace(/\s+/g, " ").replace(/[._-]+/g, " ").replace(/\s+/g, " ");
 }
 
 function buildHeaderIndex(header: string[]) {
@@ -101,18 +129,24 @@ function pick(row: string[], idx: Record<string, number>, field: string): string
 
 function parseSezione(raw: string | null): "ODV" | "APS" | "FIL" | "IS" | "RA" | "SMS" | "ALTRI" {
   if (!raw) return "ALTRI";
-  const k = normalizeKey(raw);
-  return SEZIONI_ALIAS[k] ?? "ALTRI";
+  return SEZIONI_ALIAS[normalizeKey(raw)] ?? "ALTRI";
 }
 
 function parseDate(raw: string | null): Date | null {
   if (!raw) return null;
-  // formati comuni: DD/MM/YYYY, YYYY-MM-DD
   const s = raw.trim();
   let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (m) return new Date(`${m[3]}-${m[2]}-${m[1]}`);
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return new Date(s);
+  return null;
+}
+
+function parseSiNo(raw: string | null): boolean | null {
+  if (!raw) return null;
+  const s = raw.trim().toLowerCase();
+  if (s === "si" || s === "sì" || s === "yes" || s === "1" || s === "true") return true;
+  if (s === "no" || s === "0" || s === "false") return false;
   return null;
 }
 
@@ -134,7 +168,7 @@ async function detectDelimiter(file: string): Promise<"," | ";"> {
       const commas = (buf.match(/,/g) ?? []).length;
       resolve(semis > commas ? ";" : ",");
     });
-    stream.on("error", () => resolve(";"));
+    stream.on("error", () => resolve(","));
   });
 }
 
@@ -142,26 +176,26 @@ async function importFile(file: string) {
   const st = await stat(file);
   console.log(`-> ${file} (${(st.size / 1024 / 1024).toFixed(1)} MB)`);
   const delimiter = await detectDelimiter(file);
-  console.log(`   delimitatore: ${delimiter === ";" ? "punto-virgola" : "virgola"}`);
+  console.log(`   delimitatore: ${delimiter}`);
 
   let idx: Record<string, number> | null = null;
-  let count = 0;
+  let inserted = 0;
   let skipped = 0;
+  const seenCf = new Set<string>();
+  const seenSlug = new Set<string>();
   const buffer: Array<Record<string, unknown>> = [];
   const BATCH = 500;
 
   async function flush() {
     if (buffer.length === 0) return;
-    // Prisma non ha createMany skipDuplicates su MySQL con conflitti complessi → upsert sequenziale.
-    // Per performance, qui usiamo createMany skipDuplicates (Prisma supporta su MySQL 5+).
     try {
-      await prisma.ets.createMany({ data: buffer as never, skipDuplicates: true });
+      const r = await prisma.ets.createMany({ data: buffer as never, skipDuplicates: true });
+      inserted += r.count;
     } catch (err) {
       console.error("batch error:", (err as Error).message);
     }
-    count += buffer.length;
     buffer.length = 0;
-    if (count % 5000 === 0) console.log(`   inseriti ${count}…`);
+    if (inserted > 0 && inserted % 5000 < BATCH) console.log(`   inseriti ${inserted}…`);
   }
 
   await new Promise<void>((resolve, reject) => {
@@ -177,10 +211,12 @@ async function importFile(file: string) {
     parser.on("data", async (row: string[]) => {
       if (!idx) {
         idx = buildHeaderIndex(row);
+        const found = Object.keys(idx);
+        console.log(`   colonne mappate: ${found.join(", ")}`);
         const missing = ["codiceFiscale", "denominazione", "sezione"].filter((k) => idx![k] === undefined);
         if (missing.length) {
           parser.destroy();
-          reject(new Error(`Colonne obbligatorie non trovate: ${missing.join(", ")}. Verifica MAP nel file.`));
+          reject(new Error(`Colonne obbligatorie non trovate: ${missing.join(", ")}`));
           return;
         }
         return;
@@ -192,9 +228,21 @@ async function importFile(file: string) {
         skipped++;
         return;
       }
+      if (seenCf.has(cf)) {
+        skipped++;
+        return;
+      }
+      seenCf.add(cf);
 
       const sezione = parseSezione(pick(row, idx, "sezione"));
-      const slug = slugify(`${denominazione}-${cf.slice(-4)}`);
+      const provincia = pick(row, idx, "provincia");
+      const regione = provincia ? PROV_TO_REG[provincia.toUpperCase()] ?? null : null;
+
+      let slug = slugify(`${denominazione}-${cf.slice(-4)}`);
+      if (seenSlug.has(slug)) {
+        slug = slugify(`${denominazione}-${cf}`);
+      }
+      seenSlug.add(slug);
 
       buffer.push({
         slug,
@@ -204,12 +252,15 @@ async function importFile(file: string) {
         denominazione,
         naturaGiuridica: pick(row, idx, "naturaGiuridica"),
         sezione,
+        legaleRappresentante: pick(row, idx, "legaleRappresentante"),
+        flag5x1000: parseSiNo(pick(row, idx, "flag5x1000")),
+        flagRete: parseSiNo(pick(row, idx, "flagRete")),
         email: pick(row, idx, "email"),
         pec: pick(row, idx, "pec"),
         telefono: pick(row, idx, "telefono"),
         sitoWeb: pick(row, idx, "sitoWeb"),
-        regione: pick(row, idx, "regione"),
-        provincia: pick(row, idx, "provincia"),
+        regione,
+        provincia: provincia ? provincia.toUpperCase() : null,
         comune: pick(row, idx, "comune"),
         cap: pick(row, idx, "cap"),
         indirizzo: pick(row, idx, "indirizzo"),
@@ -229,18 +280,16 @@ async function importFile(file: string) {
     parser.on("error", reject);
   });
 
-  console.log(`   ✔ importati ${count}, saltati ${skipped} (record incompleti).`);
+  console.log(`   ✔ inseriti ${inserted}, saltati ${skipped} (mancanti/duplicati)`);
 }
 
 async function main() {
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    console.error("Uso: npm run import-runts -- <file.csv> [file2.csv ...]");
+    console.error("Uso: npm run import-runts -- <file.csv>");
     process.exit(1);
   }
-  for (const f of args) {
-    await importFile(path.resolve(f));
-  }
+  for (const f of args) await importFile(path.resolve(f));
 }
 
 main()
