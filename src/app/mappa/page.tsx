@@ -1,9 +1,9 @@
-import dynamic from "next/dynamic";
 import { prisma } from "@/lib/db";
 import { buildMetadata } from "@/lib/seo";
 import { REGIONI_LIST } from "@/lib/geo";
 import { formatNumber } from "@/lib/format";
 import Link from "next/link";
+import MapaItalia from "@/components/MapaItaliaLoader";
 
 export const revalidate = 3600;
 
@@ -12,8 +12,6 @@ export const metadata = buildMetadata({
   description: "Mappa interattiva degli enti del terzo settore italiani: clicca una regione per esplorare gli ETS iscritti al RUNTS.",
   path: "/mappa",
 });
-
-const MapaItalia = dynamic(() => import("@/components/MapaItalia"), { ssr: false });
 
 export default async function MappaPage() {
   let counts: Record<string, number> = {};

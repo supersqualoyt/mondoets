@@ -1,12 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { prisma } from "@/lib/db";
 import { sezioneFromCode } from "@/lib/sezioni";
 import { formatDateIt } from "@/lib/format";
 import { buildMetadata } from "@/lib/seo";
-
-const MapaComune = dynamic(() => import("@/components/MapaComune"), { ssr: false });
+import MapaComune from "@/components/MapaComuneLoader";
 
 export const revalidate = 86400;
 
