@@ -12,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticUrls: MetadataRoute.Sitemap = [
     "", "/cerca", "/sezione", "/regione", "/strumenti", "/calcolatori", "/modelli",
-    "/guide", "/diventa-socio", "/chi-siamo", "/contatti", "/privacy",
+    "/guide", "/chi-siamo", "/contatti", "/privacy",
   ].map((p) => ({ url: `${SITE_URL}${p || "/"}`, lastModified: now, priority: p === "" ? 1 : 0.7 }));
 
   const sezioniUrls: MetadataRoute.Sitemap = SEZIONI_LIST.map((s) => ({

@@ -95,19 +95,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Sei un ETS? Diventa socio.</h2>
-        <p className="text-lg text-gray-700 max-w-2xl mx-auto mb-8">
-          Sesto Potere APS offre ai propri soci servizi di intelligenza artificiale a prezzi calmierati: assistenti per
-          bandi, generazione documenti, knowledge base privata, compliance assistant.
-        </p>
-        <Link
-          href="/diventa-socio"
-          className="inline-block px-8 py-3 bg-brand-600 text-white font-semibold rounded-md hover:bg-brand-700 no-underline"
-        >
-          Scopri i piani
-        </Link>
-      </section>
     </>
   );
 }

@@ -4,6 +4,7 @@ export const metadata = buildMetadata({
   title: "Diventa socio Sesto Potere APS",
   description: "Servizi di intelligenza artificiale a prezzi calmierati per ETS soci di Sesto Potere APS: assistenti per bandi, generazione documenti, knowledge base privata, compliance.",
   path: "/diventa-socio",
+  noindex: true,
 });
 
 const PIANI = [

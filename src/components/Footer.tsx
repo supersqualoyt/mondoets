@@ -31,7 +31,6 @@ export default function Footer() {
           <h4 className="font-semibold text-gray-900 mb-3">Info</h4>
           <ul className="space-y-2">
             <li><Link href="/chi-siamo" className="text-gray-600 hover:text-brand-700 no-underline">Chi siamo</Link></li>
-            <li><Link href="/diventa-socio" className="text-gray-600 hover:text-brand-700 no-underline">Diventa socio</Link></li>
             <li><Link href="/privacy" className="text-gray-600 hover:text-brand-700 no-underline">Privacy</Link></li>
             <li><Link href="/contatti" className="text-gray-600 hover:text-brand-700 no-underline">Contatti</Link></li>
           </ul>

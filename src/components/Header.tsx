@@ -24,12 +24,6 @@ export default function Header() {
             Guide
           </Link>
         </nav>
-        <Link
-          href="/diventa-socio"
-          className="text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-md no-underline"
-        >
-          Diventa socio
-        </Link>
       </div>
     </header>
   );
